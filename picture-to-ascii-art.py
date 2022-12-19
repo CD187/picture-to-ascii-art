@@ -456,7 +456,6 @@ class Picture(My_ascii):
                 x += 1
                 i += 1
             while x != self.width:
-                pixels_fusion[x,y] = im1[x,y]
                 pixels_fusion[x,y] = im2[x,y]
                 x += 1
             if y == next_step:
