@@ -102,9 +102,6 @@ class My_ascii:
         image = image.resize((width, height), Image.Resampling.NEAREST)
         return image
 
-    def convert_to_grayscale(self):
-        pass
-
     def scale(self):
         user_input = select_a_or_b('Would you like to change the output scale ? (y/n) : ', 'y', 'n')
         if user_input == 'n':
