@@ -3,8 +3,7 @@ from PIL import Image, ImageDraw, ImageFont
 from math import cos, sin, tan, radians
 
 def provide_path(extension, expression):
-    print(expression, end ='')
-    path = input()
+    path = input(str(expression))
     if os.path.isfile(path) == False:
         if os.path.isdir(path) == True:
             raise Exception(path + ' is not file, it is a directory')
@@ -16,14 +15,12 @@ def provide_path(extension, expression):
         return path
 
 def select_a_or_b(phrase, a, b):
-    print(phrase, end ='')
     while True:
-        answer = input()
+        answer = input(str(phrase))
         if answer == a:
             return a
         elif answer == b:
             return b
-        print(phrase, end ='')
         
 class My_ascii:
     def __init__(self):
@@ -50,8 +47,7 @@ class My_ascii:
 
     def provide_path(self, extension, expression):
         while True :
-            print(expression, end ='')
-            path = input()
+            path = input(str(expression))
             if os.path.isfile(path) == False:
                 if os.path.isdir(path) == True:
                     raise Exception(path + ' is not file, it is a directory')
@@ -63,9 +59,8 @@ class My_ascii:
                 return path
 
     def select_a_or_b(self, phrase, a, b):
-        print(phrase, end ='')
         while True:
-            answer = input()
+            answer = input(str(phrase))
             if answer == a:
                 return a
             elif answer == b:
@@ -73,34 +68,34 @@ class My_ascii:
             print(phrase, end ='')
   
     def select_a_b_c(self, phrase, a, b, c):
-        print(phrase, end ='')
         while True:
-            answer = input()
+            answer = input(str(phrase))
             if answer == a:
                 return a
             elif answer == b:
                 return b
             elif answer == c:
                 return c
-            print(phrase, end ='')      
 
     def select_val_in_interval(self, phrase, mini, maxi):
-        print(phrase, end ='')
         while True:
             try:
-                answer = int(input())
+                answer = int(input(str(phrase)))
                 if mini <= answer <= maxi:
                     return answer
                 else:
                     raise Exception('out of range !')
             except:
-                print(phrase, end ='')
+                pass
 
     def reduce_image(self, image, scale):
         width, height = image.size
         width, height = int(width*scale*self.char_ratio), int(height*scale)
         image = image.resize((width, height), Image.Resampling.NEAREST)
         return image
+
+    def convert_to_grayscale(self):
+        pass
 
     def scale(self):
         user_input = select_a_or_b('Would you like to change the output scale ? (y/n) : ', 'y', 'n')
@@ -148,10 +143,13 @@ class Text(My_ascii):
         My_ascii.__init__(self)
 
     def transform_to_ascii(self):
-        user_input = self.select_a_or_b('Would you like to get a text file or print on terminal (f/p) ? : ', 'f', 'p')
-        if user_input == 'f':
+        user_input = self.select_a_b_c('Would you like to get a .txt file,a .py file, or print on terminal (txt/py/p) ? : ', 'txt','py', 'p')
+        if user_input == 'txt':
             self.ascii_text_file()
-        else :
+        elif user_input == 'py' :
+            self.background_color = self.background_color()    
+            self.ascii_py_file()
+        elif user_input == 'p' :
             self.background_color = self.background_color()    
             self.ascii_terminal()
 
@@ -203,6 +201,46 @@ class Text(My_ascii):
         else:
             return tuple(output)
 
+    def ascii_py_file(self):
+        colors_system = [0, 128] # not inclued 192 cause it's only for greyscale / not inclued 255 cause it will rounded to 255
+        greyscale = [0, 18, 28, 38, 48, 58, 68, 78, 88, 95, 98, 108, 118, 128, 135, 138, 148, 158, 168, 178, 188, 192, 198, 208, 215, 218, 228, 238, 255]
+        colors = [0, 95, 135, 175, 215, 255]
+        round_rgb = ()
+        buffer = []
+        file_name = input('give a name to your file : ')
+        array_name = input('give a name to your final array : ')
+        with open(f"{file_name}.py", "w") as text:
+            if not self.background_color:
+                bg = 'm'
+            else:
+                try:
+                    R_bg, G_bg, B_bg = self._round_rgb_colors(self.background_color, colors_system, colors)
+                except ValueError:
+                    R_bg, G_bg, B_bg, A_bg = self._round_rgb_colors(self.background_color, colors_system, colors)
+                bg = f";48;2;{R_bg};{G_bg};{B_bg}m"
+            text.write(f"{array_name} = [\n")
+            for y in range(self.height):
+                line_buffer = []
+                text.write('[')
+                for x in range(self.width):
+                    try:
+                        r,g,b = self.resized_picture[x,y]
+                    except ValueError:
+                        r,g,b,a = self.resized_picture[x,y]
+                    average = int((r+g+b)/3)
+                    if r == g == b :
+                        round_rgb = self._round_rgb_greyscale(r, greyscale)
+                    else:
+                        round_rgb = self._round_rgb_colors((r,g,b), colors_system, colors)
+                    fg = f"\\x1b[38;2;{r};{g};{b}"
+                    text.write(''.join("'" + fg + bg + self.select_char(average)+ "'"))
+                    if x != self.width-1 :
+                        text.write(', ')
+                if y != self.height-1:
+                    text.write('],\n')
+                else:
+                    text.write(']]\n')
+    
     def ascii_terminal(self):
         colors_system = [0, 128] # not inclued 192 cause it's only for greyscale / not inclued 255 cause it will rounded to 255
         greyscale = [0, 18, 28, 38, 48, 58, 68, 78, 88, 95, 98, 108, 118, 128, 135, 138, 148, 158, 168, 178, 188, 192, 198, 208, 215, 218, 228, 238, 255]
@@ -453,6 +491,7 @@ class Picture(My_ascii):
                 x += 1
                 i += 1
             while x != self.width:
+                pixels_fusion[x,y] = im1[x,y]
                 pixels_fusion[x,y] = im2[x,y]
                 x += 1
             if y == next_step:
