@@ -233,7 +233,7 @@ class Text(My_ascii):
                     else:
                         round_rgb = self._round_rgb_colors((r,g,b), colors_system, colors)
                     fg = f"\\x1b[38;2;{r};{g};{b}"
-                    text.write(''.join("'" + fg + bg + self.select_char(average)+ "'"))
+                    text.write(''.join("'" + fg + bg + self.select_char(average)+"\\x1b[0m'"))
                     if x != self.width-1 :
                         text.write(', ')
                 if y != self.height-1:
