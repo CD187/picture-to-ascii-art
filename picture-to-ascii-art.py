@@ -20,10 +20,13 @@ def provide_path(extension, expression):
                 return print('there is not image file in this directory')
             if (retval := select_valid('would you like to convert all image files from this directory ? (y/n)', 'y', 'n')) == 'y':
                 return PATH
+            to_remove = []
             for file in PATH:
                 file_name = file.removeprefix(path)
                 if (retval := select_valid(f"would you like to convert {file_name} ? (y/n)", 'y', 'n')) == 'n':
-                    PATH.remove(file)
+                    to_remove.append(file)
+            for file_to_remove in to_remove:
+                PATH.remove(file_to_remove)
             if PATH == []:
                 return print("you have not selected any image to convert")
             return PATH
@@ -61,9 +64,10 @@ class Ascii_art:
         self.interval = len(self.char_array)/256
         if parser_dict is None:
             self.MY_IMAGES = provide_path(tuple(self.SUPPORTED_EXTENSIONS),'Provide an image path or a directory containing images : ')
-            self.AVAILALE_OUTPUT = ['text', 'image', 'python', 'terminal']
-            self.SCALE = self.scale() 
-            self.BACKGROUND_COLOR = self.background_color()
+            if isinstance('MY_IMAGES', list):
+                self.AVAILALE_OUTPUT = ['text', 'image', 'python', 'terminal']
+                self.SCALE = self.scale() 
+                self.BACKGROUND_COLOR = self.background_color()
         else:
             self.__dict__.update(**parser_dict)
             # the parser should provide a dict containing keys : 'MY_IMAGES', 'AVAILALE_OUTPUT', 'SCALE', 'BACKGROUND_COLOR'
@@ -162,8 +166,10 @@ class Ascii_art:
             My_ascii = self.ascii_for_python(PATH, size, array_pixels_datas, new_path)
         elif self.OUTPUT_TYPE == 'terminal':
             if (need_modification := self.check_terminal_size(size)) == None:
+                print('transf if')
                 My_ascii = self.ascii_for_terminal(PATH, size, array_pixels_datas)
             else:
+                print('transf else')
                 My_ascii = self.ascii_for_terminal(PATH, size, array_pixels_datas, resize = True)
         elif self.OUTPUT_TYPE == 'image':
             new_path = self.new_path(PATH) + '-ascii_art.png'
@@ -441,18 +447,19 @@ if __name__ == '__main__':
     while True:
         try:
             project = Ascii_art()
-            ARRAY = project.make_array() #composed of array for each file which represents pixels datas (char and color)
-            while True:
-                project.OUTPUT_TYPE = project.select_output_type()
-                for i, array in enumerate(ARRAY):
-                    project.transform_to_ascii(array)
-                    if project.OUTPUT_TYPE == 'terminal' and len(ARRAY) > 1 and i != len(ARRAY) - 1:
-                        input('press enter to print next image')
-                project.AVAILALE_OUTPUT.remove(project.OUTPUT_TYPE)
-                if project.OUTPUT_TYPE == [] or  project.another_output() == 'n':
-                    break
-            if (user_input := select_valid('Would you like to start an other project ? (y/n) : ', 'y', 'n')) == 'n':
-                    raise KeyboardInterrupt
+            if isinstance('MY_IMAGES', list):
+                ARRAY = project.make_array() #composed of array for each file which represents pixels datas (char and color)
+                while True:
+                    project.OUTPUT_TYPE = project.select_output_type()
+                    for i, array in enumerate(ARRAY):
+                        project.transform_to_ascii(array)
+                        if project.OUTPUT_TYPE == 'terminal' and len(ARRAY) > 1 and i != len(ARRAY) - 1:
+                            input('press enter to print next image')
+                    project.AVAILALE_OUTPUT.remove(project.OUTPUT_TYPE)
+                    if not project.OUTPUT_TYPE or project.another_output() == 'n':
+                        break
+                if (user_input := select_valid('Would you like to start an other project ? (y/n) : ', 'y', 'n')) == 'n':
+                        raise KeyboardInterrupt
         except KeyboardInterrupt:
             print('\x1b[H\x1b[2J', end='')
             break
