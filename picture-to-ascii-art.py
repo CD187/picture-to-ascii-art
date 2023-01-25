@@ -166,10 +166,8 @@ class Ascii_art:
             My_ascii = self.ascii_for_python(PATH, size, array_pixels_datas, new_path)
         elif self.OUTPUT_TYPE == 'terminal':
             if (need_modification := self.check_terminal_size(size)) == None:
-                print('transf if')
                 My_ascii = self.ascii_for_terminal(PATH, size, array_pixels_datas)
             else:
-                print('transf else')
                 My_ascii = self.ascii_for_terminal(PATH, size, array_pixels_datas, resize = True)
         elif self.OUTPUT_TYPE == 'image':
             new_path = self.new_path(PATH) + '-ascii_art.png'
