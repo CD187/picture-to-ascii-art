@@ -2,7 +2,9 @@
 
 import os
 from PIL import Image, ImageDraw, ImageFont
-from math import cos, sin, tan, radians
+from numpy import tan, sin, cos, deg2rad
+import matplotlib as plt
+# from math import cos, sin, tan, radians
 
 ########    helper functions #########################################
 
@@ -15,22 +17,20 @@ def provide_path(extension, expression):
             dir_files = os.listdir(path)
             for file in dir_files:
                 if file.endswith(extension):
-                    PATH.append(path + '/' + file)
+                    PATH.append(path + file)
             if PATH == []:
                 return print('there is not image file in this directory')
             if (retval := select_valid('would you like to convert all image files from this directory ? (y/n)', 'y', 'n')) == 'y':
                 return PATH
-            to_remove = []
-            for file in PATH:
-                file_name = file.removeprefix(path)
+            PATH_COPY = [file for file in PATH]
+            for file in PATH_COPY:
+                file_name = file.removeprefix(path + '/')
                 if (retval := select_valid(f"would you like to convert {file_name} ? (y/n)", 'y', 'n')) == 'n':
-                    to_remove.append(file)
-            for file_to_remove in to_remove:
-                PATH.remove(file_to_remove)
+                    PATH.remove(file)
             if PATH == []:
                 return print("you have not selected any image to convert")
             return PATH
-        return print(f"file {PATH} doesn\'t exist")
+        return print(f"file {path} doesn\'t exist")
     if path.endswith(extension):
         PATH.append(path)
         return PATH
@@ -64,7 +64,7 @@ class Ascii_art:
         self.interval = len(self.char_array)/256
         if parser_dict is None:
             self.MY_IMAGES = provide_path(tuple(self.SUPPORTED_EXTENSIONS),'Provide an image path or a directory containing images : ')
-            if isinstance('MY_IMAGES', list):
+            if isinstance(self.MY_IMAGES, list):
                 self.AVAILALE_OUTPUT = ['text', 'image', 'python', 'terminal']
                 self.SCALE = self.scale() 
                 self.BACKGROUND_COLOR = self.background_color()
@@ -107,14 +107,13 @@ class Ascii_art:
         image = original_image.resize((int(width * scale * self.char_ratio), int(height * scale)), Image.Resampling.NEAREST)
         width, height = image.size
         resized_picture = image.load() #Allocates storage for the image and loads the pixel data as tuple 
+        a = 255
         for y in range(height):
             line = []
             for x in range(width):
-                try:
-                    r,g,b = resized_picture[x,y]
-                    a = 255
-                except ValueError:
-                    r,g,b,a = resized_picture[x,y]
+                r,g,b,*A = resized_picture[x,y]
+                if A: 
+                    a = A 
                 char = self.select_char(int((r+g+b)/3))
                 line.append((char, (r,g,b,a)))
             array_pixels_datas.append(line)
@@ -278,18 +277,15 @@ class Ascii_art:
         return user_input*width/100
 
     def provide_angle(self):
-        user_input = select_val_in_interval("Provide an angle in degrees for the effect between -180 and 180 (0 = vertical / 90 = horizontal) : ", -180, 180)
+        user_input = select_val_in_interval("Provide an angle in degrees for the effect between -180 and 180 (0 = horizontal/ 90 = vertical) : ", -180, 180)
         return user_input
 
     def provide_origine_effect(self,width, height, angle):
-        if abs(angle) != 90:
+        abscissa = ordinate = 0
+        if abs(angle) not in [0,180]:
             abscissa = int(select_val_in_interval(f"Provide the origine abscissa in range [0;{width-1}] : ", 0, width-1))
-        else:
-            abscissa = 0
-        if angle != 0 and abs(angle) != 180 :
+        if abs(angle) != 90 :
             ordinate = int(select_val_in_interval(f"Provide the origine ordinate in range [0;{height-1}] : ", 0, height-1))
-        else:
-            ordinate = 0
         return (abscissa, ordinate)
 
     def fusion_ascii_and_original(self, PATH, size, new_path):
@@ -306,10 +302,13 @@ class Ascii_art:
         ascii_im = Image.open(new_path)
         original_im = Image.open(PATH).resize((width, height), Image.Resampling.NEAREST)
         future_output = Image.new('RGB', (width, height), color = (0,0,0))
+        output = self.fusion(width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output)
+        '''
         if abs(angle) % 90 == 0:
             output = self.fusion_straight(width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output)
         else:
             output = self.fusion_angle(width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output)
+        '''
         new_path = self.new_path(PATH) + '_fusion_effects.png'
         output.save(new_path)
 
@@ -445,7 +444,7 @@ if __name__ == '__main__':
     while True:
         try:
             project = Ascii_art()
-            if isinstance('MY_IMAGES', list):
+            if isinstance(project.MY_IMAGES, list):
                 ARRAY = project.make_array() #composed of array for each file which represents pixels datas (char and color)
                 while True:
                     project.OUTPUT_TYPE = project.select_output_type()
