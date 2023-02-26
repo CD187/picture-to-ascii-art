@@ -2,9 +2,7 @@
 
 import os
 from PIL import Image, ImageDraw, ImageFont
-from numpy import tan, sin, cos, deg2rad
-import matplotlib as plt
-# from math import cos, sin, tan, radians
+from numpy import tan, sin, cos, deg2rad, pi, linspace
 
 ########    helper functions #########################################
 
@@ -89,12 +87,12 @@ class Ascii_art:
             else:
                 ratio = (lin - 1)/height #-1 to keep a line for request
             return ratio * self.SCALE
-
+    
     def select_output_type(self):
         if len(self.AVAILALE_OUTPUT) > 1:
             return select_valid(f"Which output type would you want to create ? ({'/'.join(self.AVAILALE_OUTPUT)}) : ", *self.AVAILALE_OUTPUT)
         return ''.join(self.AVAILALE_OUTPUT)
-
+    
     def make_array(self):
         return [self.create_datas_tuple(file) for file in self.MY_IMAGES]
     
@@ -107,7 +105,6 @@ class Ascii_art:
         image = original_image.resize((int(width * scale * self.char_ratio), int(height * scale)), Image.Resampling.NEAREST)
         width, height = image.size
         resized_picture = image.load() #Allocates storage for the image and loads the pixel data as tuple 
-        a = 255
         for y in range(height):
             line = []
             for x in range(width):
@@ -115,7 +112,7 @@ class Ascii_art:
                 if A: 
                     a = A 
                 char = self.select_char(int((r+g+b)/3))
-                line.append((char, (r,g,b,a)))
+                line.append((char, (r,g,b,(a:=A if A else 255))))
             array_pixels_datas.append(line)
         return (PATH, (width, height), array_pixels_datas)
 
@@ -175,7 +172,7 @@ class Ascii_art:
             My_ascii = self.ascii_for_image(PATH, size, array_pixels_datas, new_path)
             if (user_input := select_valid('Do you want to merge the original file with the ascii art file to create effect ? (y/n) ', 'y', 'n')) == 'y':
                 self.fusion_ascii_and_original(PATH, size, new_path)
-    
+
     def new_path(self, path):
         for extension in self.SUPPORTED_EXTENSIONS:
             if path.endswith(extension):
@@ -290,155 +287,58 @@ class Ascii_art:
 
     def fusion_ascii_and_original(self, PATH, size, new_path):
         width, height = size
-        if self.parser_arg:
-            # TODO 
-            # width_diffusion, angle, origine_effect = self.__dict__.get('IM_ARG', (50, 0,size([0]/2,size[1]/2)))
-            pass
-        else:
-            width_diffusion = self.provide_width_diffusion(width)
-            angle = self.provide_angle()
-            origine_effect = self.provide_origine_effect(width, height, angle)
+        width_diffusion = self.provide_width_diffusion(width)               #
+        angle = self.provide_angle()                                        # if not parser_dict
+        origine_effect = self.provide_origine_effect(width, height, angle)  #
+        # TODO 
+        # width_diffusion, angle, origine_effect = self.__dict__.get('IM_ARG', (50, 0,size([0]/2,size[1]/2)))
         x_origine, y_origine = origine_effect
         ascii_im = Image.open(new_path)
         original_im = Image.open(PATH).resize((width, height), Image.Resampling.NEAREST)
         future_output = Image.new('RGB', (width, height), color = (0,0,0))
         output = self.fusion(width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output)
-        '''
-        if abs(angle) % 90 == 0:
-            output = self.fusion_straight(width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output)
-        else:
-            output = self.fusion_angle(width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output)
-        '''
         new_path = self.new_path(PATH) + '_fusion_effects.png'
         output.save(new_path)
-
-    def fusion_straight(self,width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, output):
-        if angle == 90:
-            ascii_im = ascii_im.rotate(90)
-            original_im = original_im.rotate(90)
-            output = output.rotate(90)
-            x_origine, y_origine = y_origine, x_origine
-        elif angle == -90:
-            ascii_im = ascii_im.rotate(270)
-            original_im = original_im.rotate(270)
-            output = output.rotate(270)
-            x_origine, y_origine = y_origine, x_origine
-        elif abs(angle) == 180:
-            ascii_im, original_im = original_im, ascii_im
+    
+    def fusion(self,width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, future_output):
         im1 = ascii_im.load()
         im2 = original_im.load()
-        pixels_fusion = output.load()
-        start_x = int(x_origine - width_diffusion/2)
-        end_x = int(x_origine + width_diffusion/2)
-        if end_x > width:
-            end_x = width
-        for y in range(height):
-            x = 0
-            if start_x >= 0:
-                i = 1
-            else:
-                i = abs(start_x + 1)
-            interval = i * 100 / width_diffusion
-            while x < start_x:
-                if x >= width:
-                    break
-                pixels_fusion[x,y] = im1[x,y]
-                x += 1
-            while x <= end_x:
-                if x >= width:
-                    break
-                interval = i * 100 / width_diffusion
-                pixels_fusion[x,y] = tuple(map(lambda i,j : int((i*(100-interval)+j*interval)/100), im1[x,y], im2[x,y]))
-                x += 1
-                i += 1
-            while x != width:
-                pixels_fusion[x,y] = im2[x,y]
-                x += 1
-        if angle == 90:
-            output = output.rotate(270)
-        elif angle == -90:
-            output = output.rotate(90)
-        return output
-
-    def y_origine_for_x_origine_plus_1(self, height, angle):
-        interval = tan(radians(angle))
-        change_statement = []
-        ret_val = round(interval)
-        for i in range(height):
-            temp_val = round(i*interval)
-            if temp_val != ret_val:
-                change_statement.append(i)
-                ret_val = temp_val
-            i += 1
-        return change_statement
-
-    def fusion_angle(self, width, height, width_diffusion, angle, x_origine, y_origine, ascii_im, original_im, output):
-        first_angle_value = angle
-        if not -45 <= angle <= 45:
-            if 45 < angle < 135:
-                new_angle = 90 - angle
-                ascii_im = ascii_im.rotate(90)
-                original_im = original_im.rotate(90)
-                width, height = height, width
-            elif  -135 < angle < -45:
-                new_angle = 90 + angle
-                ascii_im = ascii_im.rotate(270)
-                original_im = original_im.rotate(270)
-                width, height = height, width
-            elif 135 <= angle < 180:
-                ascii_im, original_im = original_im, ascii_im
-                new_angle = angle - 180
-            elif -135 >= angle > -180:
-                ascii_im, original_im = original_im, ascii_im
-                new_angle = angle + 180
-            angle = new_angle
-        if angle > 0:
-            increment = -1
-        else:
-            increment = 1
-        starting_central_pixel_value = round(tan(radians(angle))*y_origine) + x_origine
-        change_central_pixel_value = self.y_origine_for_x_origine_plus_1(height, angle)[::-1]
-        new_width_diffusion = width_diffusion/cos(radians(angle))
-        output = Image.new('RGBA', (width, height), color = (0,0,0))
-        im1 = ascii_im.load()
-        im2 = original_im.load()
-        pixels_fusion = output.load()
-        start_x = int(starting_central_pixel_value - new_width_diffusion/2)
-        end_x = int(starting_central_pixel_value + new_width_diffusion/2)
-        next_step = change_central_pixel_value.pop()
-        for y in range(height):
-            x = 0
-            if start_x >= 0:
-                i = 1
-            else:
-                i = abs(start_x + 1)
-            while x < start_x:
-                if x == width:
-                    break
-                pixels_fusion[x,y] = im1[x,y]
-                x += 1
-            while x <= end_x:
-                if x == width:
-                    break
-                pixels_fusion[x,y] = im1[x,y]
-                interval = i * 100 / new_width_diffusion
-                pixels_fusion[x,y] = tuple(map(lambda a,b : int((a*(100-interval)+b*interval)/100), im1[x,y], im2[x,y]))
-                x += 1
-                i += 1
-            while x != width:
-                pixels_fusion[x,y] = im1[x,y]
-                pixels_fusion[x,y] = im2[x,y]
-                x += 1
-            if y == next_step:
-                start_x += increment
-                end_x += increment
-                if change_central_pixel_value != []:
-                    next_step = change_central_pixel_value.pop()
-        if 45 < first_angle_value < 135:
-            output = output.rotate(270)
-        elif  -135 < first_angle_value < -45:
-            output = output.rotate(90)
-        return output
+        pixels_fusion = future_output.load()
+        tan_angle = tan(deg2rad(angle))
+        half_width_dif = width_diffusion/2
+        const = y_origine - (tan_angle*x_origine)
+        delta = half_width_dif/sin(deg2rad(90 - angle))
+        f = lambda x : tan_angle*x + const
+        start = lambda x : f(x) + delta
+        end = lambda x : f(x) - delta
+        if abs(angle)>90:
+            im1,im2,start,end  = im2,im1,end,start
+        if abs(angle) != 90:
+            for y in range(height-1,0,-1):
+                for x in range(width):
+                    Y = height-y
+                    if y > start(x):
+                        pixels_fusion[x,Y] = im1[x,Y]
+                    elif end(x) <= y <= start(x):
+                        ratio = abs((y - end(x))/(2*delta)) #if abs(angle)>90 : ratio < 0
+                        pixels_fusion[x,Y] = tuple(map(lambda i,j : int(j*(1-ratio)+i*ratio), im1[x,Y], im2[x,Y]))
+                    else:
+                        pixels_fusion[x,Y] = im2[x,Y]
+        else:        
+            start_x = x_origine - half_width_dif 
+            end_x = x_origine + half_width_dif
+            if angle < 0:
+                im1,im2 = im2,im1
+            for y in range(height):
+                for x in range(width):
+                    if x < start_x:
+                        pixels_fusion[x,y] = im1[x,y]
+                    elif start_x <= x <= end_x:
+                        ratio = (end_x - x)/ width_diffusion
+                        pixels_fusion[x,y] = tuple(map(lambda i,j : int(j*(1-ratio)+i*ratio), im1[x,y], im2[x,y]))
+                    else:
+                        pixels_fusion[x,y] = im2[x,y]
+        return future_output 
 
 if __name__ == '__main__':
     while True:
