@@ -53,11 +53,12 @@ def select_val_in_interval(prompt, mini, maxi):
 class Ascii_art:
     def __init__(self, parser_dict = None): 
         self.SUPPORTED_EXTENSIONS = ['.png', '.jpg', '.jpeg']
-        self.one_char_width = 5 
-        self.one_char_height = 10
+        self.ratio = 0.5                     # shall we put this value as variable ? increase number of characters  
+        self.one_char_width = 8*self.ratio   # 8x16pixels was the standard for terminal char size, 
+        self.one_char_height = 16*self.ratio # the resolution was 640x480 for 80x20 characters
         self.char_ratio = self.one_char_height/self.one_char_width
         #TODO one day, it should be good to make it possible to decide how many chars in density
-        density = '@#W$?!;:+=-,.- '
+        density = self.select_density()
         self.char_array = list(density)
         self.interval = len(self.char_array)/256
         if parser_dict is None:
@@ -71,14 +72,20 @@ class Ascii_art:
             # the parser should provide a dict containing keys : 'MY_IMAGES', 'AVAILALE_OUTPUT', 'SCALE', 'BACKGROUND_COLOR'
             # if parser_dict['AVAILABLE_OUTPUT'] == 'image' 
             # parser_dict['IM_ARG'] = tuple( width_diffusion, angle, origine_effect) Cf self.fusion_ascii_and_original
+    
+    def select_density(self):
+        if (user_input := select_valid('Would you like to use 70 or 10 differents characters ? (70/10) : ', '70', '10')) == '70':
+            return "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,\"^`'. "
+        else:
+            return " .:-=+*#%@"
 
     def scale(self, size = None):
         if not size:
             if (user_input := select_valid('Would you like to change the output scale ? (y/n) : ', 'y', 'n')) == 'n':
-                return 0.1
+                return 1/self.one_char_height
             else:
                 user_input = select_val_in_interval('Provide a pourcentage for the scale between 5 and 200% : ', 5, 200)
-                return user_input * 0.001
+                return user_input/100/self.one_char_height
         else:   #if size != None, it means self.OUTPUT_TYPE == 'terminal' and the image need to be reduced 
             col,lin = os.get_terminal_size() 
             width, height = size
@@ -101,20 +108,18 @@ class Ascii_art:
             scale = self.SCALE
         array_pixels_datas = []
         original_image = Image.open(PATH)
-        width, height = original_image.size #method from PIL which return a tuple defining the size of an image
-        image = original_image.resize((int(width * scale * self.char_ratio), int(height * scale)), Image.Resampling.NEAREST)
+        original_width,original_height = original_image.size #method from PIL which return a tuple defining the size of an image
+        image = original_image.resize((int(original_width * scale * self.char_ratio), int(original_height * scale)), Image.Resampling.NEAREST)
         width, height = image.size
         resized_picture = image.load() #Allocates storage for the image and loads the pixel data as tuple 
         for y in range(height):
             line = []
             for x in range(width):
                 r,g,b,*A = resized_picture[x,y]
-                if A: 
-                    a = A 
                 char = self.select_char(int((r+g+b)/3))
                 line.append((char, (r,g,b,(a:=A if A else 255))))
             array_pixels_datas.append(line)
-        return (PATH, (width, height), array_pixels_datas)
+        return (PATH, (width, height), array_pixels_datas, (original_width, original_height))
 
     def select_char(self, value):
         return self.char_array[round(value * self.interval)-1]
@@ -138,22 +143,8 @@ class Ascii_art:
                     background.append(val)
                 return tuple(background)
 
-    def greyscale(self, array):
-        pass
-        '''
-        for tuple RGB color make average = val = (R+G+B)/3 and R = G = B = val
-        '''
-
-    def luminsoity(self, array):
-        pass
-        '''
-        for tuple RGB color:
-            for el in list(tuple):
-                el += luminosity
-        '''
-
     def transform_to_ascii(self, datas):
-        PATH, size, array_pixels_datas = datas
+        PATH, size, array_pixels_datas, original_size = datas
         if self.OUTPUT_TYPE == 'text':
             new_path = self.new_path(PATH) + '.txt'
             My_ascii = self.ascii_for_text(PATH, size, array_pixels_datas, new_path)
@@ -169,7 +160,7 @@ class Ascii_art:
             new_path = self.new_path(PATH) + '-ascii_art.png'
             width, height = size
             size = (width * self.one_char_width, height * self.one_char_height)
-            My_ascii = self.ascii_for_image(PATH, size, array_pixels_datas, new_path)
+            My_ascii = self.ascii_for_image(PATH, size, original_size, array_pixels_datas, new_path)
             if (user_input := select_valid('Do you want to merge the original file with the ascii art file to create effect ? (y/n) ', 'y', 'n')) == 'y':
                 self.fusion_ascii_and_original(PATH, size, new_path)
 
@@ -216,7 +207,7 @@ class Ascii_art:
     def ascii_for_terminal(self, PATH, size, array_pixels_datas, resize = None):
         if resize :
             temp_scale = self.scale(size)
-            temp_path, temp_size, datas = self.create_datas_tuple(PATH, scale = temp_scale)
+            temp_path, temp_size, datas, original_size = self.create_datas_tuple(PATH, scale = temp_scale)
         else:
             datas = array_pixels_datas
         bg_end = '\x1b[1m'
@@ -243,15 +234,15 @@ class Ascii_art:
             return True
         return None
 
-    def ascii_for_image(self, PATH, size, array_pixels_datas, new_path):
-        width, height =size
+    def ascii_for_image(self, PATH, size, original_size, array_pixels_datas, new_path):
+        width, height = int(original_size[0]*(scale := self.SCALE*self.one_char_height)),int(original_size[1]*scale)
         if self.BACKGROUND_COLOR:
             R,G,B,A = self.BACKGROUND_COLOR
         else:
             R = G = B = A = 255
         my_ascii_art = Image.new('RGBA', (width, height), color = (R,G,B,A))
         ascii_art = ImageDraw.Draw(my_ascii_art)
-        FONT_SIZE = select_val_in_interval('Choose the policy size between 6 and 12pts : ', 6, 12)
+        FONT_SIZE = select_val_in_interval('Choose the policy size between 6 and 10pts : ', 6, 10)
         FONT = ImageFont.truetype(self.is_font(), FONT_SIZE)
         for y, line in enumerate(array_pixels_datas):
             for x, pixel_datas in enumerate(line):
@@ -286,7 +277,7 @@ class Ascii_art:
         return (abscissa, ordinate)
 
     def fusion_ascii_and_original(self, PATH, size, new_path):
-        width, height = size
+        width, height =[int(el) for el in size]
         width_diffusion = self.provide_width_diffusion(width)               #
         angle = self.provide_angle()                                        # if not parser_dict
         origine_effect = self.provide_origine_effect(width, height, angle)  #
