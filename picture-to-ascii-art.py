@@ -306,8 +306,8 @@ class Ascii_art:
             im1,im2,start,end  = im2,im1,end,start
         if abs(angle) != 90:
             for y in range(height-1,0,-1):
+                Y = height-y
                 for x in range(width):
-                    Y = height-y
                     if y > start(x):
                         pixels_fusion[x,Y] = im1[x,Y]
                     elif end(x) <= y <= start(x):
